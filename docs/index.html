@@ -148,7 +148,7 @@
                 clearInterval(timerId);
             });
 
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 640, height: 640} }).then(function (stream) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", aspectRation:1} }).then(function (stream) {
             //navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function (stream) {
                 video.srcObject = stream;
                 video.setAttribute("playsinline", true); // don't play fullscreen on iOS safari
