@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tesseract.js Offline</title>
+    <!--<link rel="stylesheet" href="./css/style.css">-->
+    <!--<script src="../node_modules/tesseract.js/dist/tesseract.min.js"></script>-->
+    <script src='https://unpkg.com/tesseract.js@v2.0.0-beta.1/dist/tesseract.min.js'></script>
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
+
+        #root {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            padding: 0px 16px;
+        }
+
+        #sep {
+            width: 16px;
+        }
+
+        #messages {
+            width: 640px;
+            height: 360px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="root">
+        <canvas id="ocanvas"></canvas>
+        <canvas id="mycanvas"></canvas>
+        <div id="sep"></div>
+        <div id="messages">
+        </div>
+    </div>
+    
+    <script>
+        const { createWorker, createScheduler } = Tesseract;
+        const scheduler = createScheduler();
+
+        var video = document.createElement("video");
+        var canvasElement = document.getElementById("mycanvas");
+        var canvas = canvasElement.getContext("2d");
+        var frame;
+
+        const messages = document.getElementById('messages');
+        let timerId = null;
+
+        const addMessage = (m, bold) => {
+            let msg = `<p>${m}</p>`;
+            if (bold) {
+                msg = `<p class="bold">${m}</p>`;
+            }
+            messages.innerHTML += msg;
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        const doOCR = async () => {
+            const c = document.createElement('canvas');
+            //c.style.filter = 'grayscale(100%)';
+            c.width = video.videoWidth;
+            c.height = video.videoHeight;
+            c.getContext('2d').drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+            const rect = { left: video.videoWidth/10, top: video.videoHeight/10*3, width: video.videoWidth/10*9, height: video.videoHeight/10*4 };
+            const start = new Date();
+            const { data: { text } } = await scheduler.addJob('recognize', c, {rect});
+            //const { data: { text, box } } = await scheduler.addJob('recognize', c);
+            const end = new Date();
+            addMessage(`[${start.getMinutes()}:${start.getSeconds()} - ${end.getMinutes()}:${end.getSeconds()}], ${(end - start) / 1000} s`);
+            text.split('\n').forEach((line) => {
+                if (line.indexOf('PHAM') > 0)
+                {
+                    addMessage(line);
+                    video.pause();
+                    clearInterval(timerId);
+                    cancelAnimationFrame(frame);
+                    scheduler.terminate();
+                }
+            });
+        };
+
+        function drawLine(color) {
+            let w = canvasElement.width/10;
+            let h = canvasElement.height/10;
+            canvas.beginPath();
+            canvas.lineWidth = 1;
+            canvas.strokeStyle = color;
+
+            canvas.moveTo(w, h * 3);
+            canvas.lineTo(w * 9, h * 3);
+
+            canvas.moveTo(w, h * 3.5);
+            canvas.lineTo(w * 9, h * 3.5);
+
+            canvas.moveTo(w, h * 4);
+            canvas.lineTo(w * 9, h * 4);
+
+            canvas.moveTo(w, h * 4.5);
+            canvas.lineTo(w * 9, h * 4.5);
+
+            canvas.moveTo(w, h*5);
+            canvas.lineTo(w*9, h*5);
+
+            canvas.moveTo(w, h * 5.5);
+            canvas.lineTo(w * 9, h * 5.5);
+
+            canvas.moveTo(w, h*6);
+            canvas.lineTo(w * 9, h * 6);
+
+            canvas.moveTo(w, h * 6.5);
+            canvas.lineTo(w * 9, h * 6.5);
+
+            canvas.moveTo(w, h*7);
+            canvas.lineTo(w * 9, h * 7);
+
+            canvas.stroke();
+        }
+
+
+        (async () => {
+            addMessage('Initializing Tesseract.js');
+            for (let i = 0; i < 2; i++) {
+                const worker = createWorker();
+                await worker.load();
+                await worker.loadLanguage('eng');
+                await worker.initialize('eng');
+                scheduler.addWorker(worker);
+            }
+            addMessage('Initialized Tesseract.js');
+            video.addEventListener('play', () => {
+                timerId = setInterval(doOCR, 618);
+            });
+            video.addEventListener('pause', () => {
+                clearInterval(timerId);
+            });
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 360, height: 360} }).then(function (stream) {
+            //navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function (stream) {
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true); // don't play fullscreen on iOS safari
+                video.play();
+                frame = requestAnimationFrame(tick);
+            });
+
+            function tick() {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    //canvasElement.style.filter = 'grayscale(100%)';
+                    canvasElement.width = video.videoWidth;
+                    canvasElement.height = video.videoHeight;
+                    canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                    drawLine("#ffffff");
+
+                    //    sn.value = code.data;
+
+                    //    video.pause();
+                    //    cancelAnimationFrame(frame);
+                    //    return;
+
+                    //} else {
+                    //    sn.value = 'スキャニング... ';
+                    //}
+                }
+
+                requestAnimationFrame(tick);
+            }
+
+            //addMessage('Now you can play the video. :)');
+            //video.controls = true;
+        })();
+
+    </script>
+
+</body>
+</html>
